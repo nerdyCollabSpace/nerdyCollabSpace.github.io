@@ -26,6 +26,7 @@ fl2 <- "~/Downloads/Tony/ProjectFour/Data/LoanStats3a.xlsx"
 
 
 
+
 #$# Part A. What is in a credit score?
 #$#1
 #Download the Lending Club data (https://www.lendingclub.com/info/download-data.action)
@@ -84,6 +85,7 @@ str(df2$sub_grade)
 
 
 
+
 #$#3
 #3.	The Lending Club data are at the loan level.  Produce two alternative 
 #“aggregated” data sets, which we’ll examine at different points throughout 
@@ -94,48 +96,51 @@ str(df2$sub_grade)
 #aggregation of all of the loans with the same combination of 
 #(zip_code, verification_status).
 
-dt_fr_agg = as.data.table(df2)
-head(dt_fr_agg)
+##idea to add new columns with percentages.
+#df2$loan_status > two categories "Fully Paid", "Current" a new column "loan_status2"
+unique(df2$loan_status)
+# [1] Fully Paid       ->   Fully Paid                                
+# [2] Charged Off      ->   Current                                  
+# [3]                  ->   Current                                  
+# [4] Does not meet the credit policy. Status:Fully Paid    ->   Fully Paid 
+# [5] Does not meet the credit policy. Status:Charged Off  ->   Current
 
-#categorical data
-setkey(dt_fr_agg, zip_code, verification_status)
-dt_fr_agg$grade <- factor(dt_fr_agg$grade,
-                          labels = 1:8,
-                          levels = c("","A","B","C","D","E","F","G"))
-dt_fr_agg$sub_grade <- factor(dt_fr_agg$sub_grade,
-                              labels = 1:length(unique(dt_fr_agg$sub_grade)),
-                              levels = unique(dt_fr_agg$sub_grade))
+df2$loan_status2 <- ifelse(df2$loan_status == "Does not meet the credit policy. Status:Fully Paid"
+                           | df2$loan_status == "Fully Paid"
+                          , "Fully Paid" 
+                          , "Current")
 
-dt_fr_agg$term <- factor(dt_fr_agg$term,
-                         labels = 1:length(unique(dt_fr_agg$term)),
-                         levels = unique(dt_fr_agg$term))
+df2$ls_FullyPaid <- ifelse(df2$loan_status2 == "Fully Paid", 1, 0)
+df2$ls_Current <- ifelse(df2$loan_status2 == "Current", 1, 0)
 
-dt_fr_agg$loan_status <- factor(dt_fr_agg$loan_status,
-                                labels = 1:length(unique(dt_fr_agg$loan_status)),
-                                levels = unique(dt_fr_agg$loan_status))
-
-
-dt_agg1 = dt_fr_agg[, list(Avg_Loan_Amnt = sum(loan_amnt, na.rm = T)
-                           , Avg_annual_inc = sum(annual_inc, na.rm = T)
-                           , loan_status = length()/)
-                    , by = c("zip_code", "verification_status")]
-
-loan_status <- unique(dt_fr_agg$loan_status)
-
-
+head(df2)
 
 #“aggregated” at ZIP x Verification Status
-df_ag31 <- aggregate(cbind(loan_amnt, annual_inc) ~ zip_code + verification_status, 
-                     FUN = sum, data = df2)
-head(df_ag31) #final
+df_ag31 <- aggregate(cbind(loan_amnt, annual_inc, ls_FullyPaid, ls_Current) 
+                     ~ zip_code + verification_status, FUN = sum, data = df2)
+
+#fractions for loan status
+total_loans <- df_ag31$ls_FullyPaid + df_ag31$ls_Current
+df_ag31$ls_FullyPaid <- df_ag31$ls_FullyPaid/total_loans
+df_ag31$ls_Current <- df_ag31$ls_Current/total_loans
+
+
+head(df_ag31, 10) #final with   loan Status
 
 #$#3ii
 #ii.	ZIP x Verification Status x Term x Subgrade. A data set in which each 
 #observation is an aggregation of all of the loans with the same combination of 
 #(zip_code, verification_status, term, sub_grade).
-df_ag32 <- aggregate(cbind(loan_amnt, annual_inc) ~ zip_code + verification_status 
+df_ag32 <- aggregate(cbind(loan_amnt, annual_inc, ls_FullyPaid, ls_Current) 
+                     ~ zip_code + verification_status 
                      + term + sub_grade , FUN = sum, data = df2)
-head(df_ag32) #final
+
+#loan status
+total_loans <- df_ag32$ls_FullyPaid + df_ag32$ls_Current
+df_ag32$ls_FullyPaid <- df_ag32$ls_FullyPaid/total_loans
+df_ag32$ls_Current <- df_ag32$ls_Current/total_loans
+
+head(df_ag32,100) #final
 
 
 #$#
@@ -163,3 +168,4 @@ head(df_ag32) #final
 ###global adjustments start 2
 options(warn = oldwarnval) #reset the warning message
 ###global adjustments end 2
+
